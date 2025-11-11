@@ -1,0 +1,42 @@
+# Exclude build artifacts
+bin/
+obj/
+out/
+
+# Exclude IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Exclude configuration files with secrets
+appsettings.json
+appsettings.*.json
+!appsettings.example.json
+
+# Exclude logs
+*.log
+logs/
+
+# Exclude ETL output files (can be large)
+ETL_Output/*.json
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude documentation (not needed in container)
+*.md
+!README.md
+
+# Exclude tests
+**/*Tests/
+**/*Test/
+
+# Exclude Docker files themselves
+Dockerfile*
+.dockerignore
+
+# Exclude NuGet packages (restored during build)
+*.nupkg
+packages/
