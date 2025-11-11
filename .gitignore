@@ -1,0 +1,61 @@
+# Root level gitignore for RAG Sales Analytics project
+
+## Backend .NET
+backEnd/**/bin/
+backEnd/**/obj/
+backEnd/**/*.user
+backEnd/**/*.suo
+backEnd/**/.vs/
+backEnd/**/.vscode/
+backEnd/**/appsettings.json
+backEnd/**/appsettings.*.json
+!backEnd/**/appsettings.example.json
+backEnd/**/*.log
+backEnd/**/*.db
+backEnd/**/*.db-shm
+backEnd/**/*.db-wal
+
+## Frontend React
+frontEnd/node_modules/
+frontEnd/build/
+frontEnd/dist/
+frontEnd/.env
+frontEnd/.env.local
+frontEnd/.env.development.local
+frontEnd/.env.test.local
+frontEnd/.env.production.local
+!frontEnd/.env.example
+frontEnd/npm-debug.log*
+frontEnd/yarn-debug.log*
+frontEnd/yarn-error.log*
+frontEnd/.DS_Store
+
+## ETL Output Files (can be large)
+backEnd/**/ETL_Output/*.json
+!backEnd/**/ETL_Output/.gitkeep
+
+## IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+## Azure and deployment
+*.publish.xml
+*.azurePubxml
+*.pubxml
+*.PublishSettings
+*.pubxml.user
+
+## Logs
+*.log
+logs/
+*.log.*
+
+## Temporary files
+*.tmp
+*.temp
+*.cache
