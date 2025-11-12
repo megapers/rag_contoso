@@ -45,9 +45,27 @@ builder.Services.AddCors(options =>
                     "http://localhost:3001",
                     "https://localhost:3000",
                     "https://localhost:3001")
+                  .SetIsOriginAllowedToAllowWildcardSubdomains()
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
+        });
+    
+    // Add policy for Vercel deployment
+    options.AddPolicy("AllowVercel",
+        policy =>
+        {
+            policy.SetIsOriginAllowed(origin =>
+                {
+                    if (string.IsNullOrWhiteSpace(origin)) return false;
+                    var uri = new Uri(origin);
+                    return uri.Host.EndsWith(".vercel.app") || 
+                           uri.Host == "localhost" ||
+                           uri.Host.EndsWith("azurecontainerapps.io");
+                })
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         });
 });
 
@@ -65,8 +83,8 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-// Enable CORS
-app.UseCors("AllowReactApp");
+// Enable CORS - use Vercel policy to allow Vercel deployments
+app.UseCors("AllowVercel");
 
 // Map API Endpoints
 app.MapSalesEndpoints();

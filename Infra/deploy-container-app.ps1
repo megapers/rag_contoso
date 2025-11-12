@@ -51,7 +51,7 @@ param(
     [string]$LlmApiKey = "",
     
     [Parameter(Mandatory=$false)]
-    [string]$ContainerImage = "mcr.microsoft.com/dotnet/samples:aspnetapp"
+    [string]$ContainerImage = "ghcr.io/megapers/rag_contoso:latest"
 )
 
 $ErrorActionPreference = "Stop"
