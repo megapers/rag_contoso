@@ -5,7 +5,7 @@ namespace ProductSales.Data;
 
 public class ContosoRetailContext : DbContext
 {
-    public ContosoRetailContext(DbContextOptions<ContosoRetailContext> options)
+    public ContosoRetailContext(DbContextOptions options)
         : base(options)
     {
     }

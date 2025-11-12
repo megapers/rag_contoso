@@ -31,4 +31,11 @@ public class FactSalesRepository : IFactSalesRepository
             .Where(fs => fs.DateKey >= startDate && fs.DateKey <= endDate)
             .ToListAsync();
     }
+
+    public async Task<FactSales> AddAsync(FactSales sale)
+    {
+        _context.FactSales.Add(sale);
+        await _context.SaveChangesAsync();
+        return sale;
+    }
 }

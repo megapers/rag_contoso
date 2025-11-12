@@ -6,9 +6,22 @@ using ProductSales.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add database context
-builder.Services.AddDbContext<ContosoRetailContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Determine which database provider to use based on environment
+var usePostgres = builder.Configuration.GetValue<bool>("UsePostgreSQL") || 
+                  builder.Environment.IsProduction() ||
+                  !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("USE_POSTGRESQL"));
+
+// Add database context - SQL Server for local, PostgreSQL for Azure/Production
+if (usePostgres)
+{
+    builder.Services.AddDbContext<ContosoRetailContext, ContosoRetailPostgresContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection")));
+}
+else
+{
+    builder.Services.AddDbContext<ContosoRetailContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
 
 // Add repositories
 builder.Services.AddScoped<IFactSalesRepository, FactSalesRepository>();
@@ -19,6 +32,7 @@ builder.Services.AddScoped<IEtlService, EtlService>();
 builder.Services.AddScoped<IAzureSearchService, AzureSearchService>();
 builder.Services.AddHttpClient<ILlmApiClient, LlmApiClient>();
 builder.Services.AddScoped<IRagService, RagService>();
+builder.Services.AddScoped<IDataMigrationService, DataMigrationService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -61,5 +75,6 @@ app.MapSalesEndpoints();
 app.MapProductEndpoints();
 app.MapEtlEndpoints();
 app.MapRagEndpoints();
+app.MapMigrationEndpoints();
 
 app.Run();
