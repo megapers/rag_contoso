@@ -34,10 +34,16 @@ param(
     [string]$PostgresAdminPassword,
     
     [Parameter(Mandatory=$false)]
+    [string]$LlmApiKey = "",
+    
+    [Parameter(Mandatory=$false)]
     [switch]$SkipAISearch,
     
     [Parameter(Mandatory=$false)]
-    [switch]$SkipPostgreSQL
+    [switch]$SkipPostgreSQL,
+    
+    [Parameter(Mandatory=$false)]
+    [switch]$SkipContainerApp
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +57,7 @@ Write-Host "   Resource Group: $ResourceGroupName" -ForegroundColor White
 Write-Host "   Location: $Location" -ForegroundColor White
 Write-Host "   AI Search: $(if($SkipAISearch){'❌ Skipped'}else{'✅ Will Deploy'})" -ForegroundColor White
 Write-Host "   PostgreSQL: $(if($SkipPostgreSQL){'❌ Skipped'}else{'✅ Will Deploy'})" -ForegroundColor White
+Write-Host "   Container App: $(if($SkipContainerApp){'❌ Skipped'}else{'✅ Will Deploy'})" -ForegroundColor White
 Write-Host ""
 
 # Check if logged in to Azure
@@ -82,6 +89,7 @@ if (-not $rg) {
 $deploymentResults = @{
     AISearch = $null
     PostgreSQL = $null
+    ContainerApp = $null
 }
 
 # Deploy Azure AI Search
@@ -128,6 +136,29 @@ if (-not $SkipPostgreSQL) {
     $deploymentResults.PostgreSQL = "⏭️  Skipped"
 }
 
+# Deploy Container App
+if (-not $SkipContainerApp) {
+    Write-Host "`n╔════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║     Deploying Container App           ║" -ForegroundColor Cyan
+    Write-Host "╚════════════════════════════════════════╝`n" -ForegroundColor Cyan
+    
+    try {
+        & "$PSScriptRoot\deploy-container-app.ps1" `
+            -ResourceGroupName $ResourceGroupName `
+            -Location $Location `
+            -PostgresAdminPassword $PostgresAdminPassword `
+            -LlmApiKey $LlmApiKey
+        
+        $deploymentResults.ContainerApp = "✅ Success"
+        Write-Host "`n✅ Container App deployed successfully!`n" -ForegroundColor Green
+    } catch {
+        $deploymentResults.ContainerApp = "❌ Failed: $($_.Exception.Message)"
+        Write-Host "`n❌ Container App deployment failed: $($_.Exception.Message)`n" -ForegroundColor Red
+    }
+} else {
+    $deploymentResults.ContainerApp = "⏭️  Skipped"
+}
+
 # Summary
 Write-Host "`n╔════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║       Deployment Summary              ║" -ForegroundColor Green
@@ -136,6 +167,7 @@ Write-Host "╚═════════════════════�
 Write-Host "📊 Results:" -ForegroundColor Cyan
 Write-Host "   Azure AI Search:  $($deploymentResults.AISearch)" -ForegroundColor White
 Write-Host "   PostgreSQL:       $($deploymentResults.PostgreSQL)" -ForegroundColor White
+Write-Host "   Container App:    $($deploymentResults.ContainerApp)" -ForegroundColor White
 Write-Host ""
 
 Write-Host "🔗 Resource Group:" -ForegroundColor Cyan
@@ -144,10 +176,10 @@ Write-Host "   Portal: https://portal.azure.com/#resource/subscriptions/$($accou
 Write-Host ""
 
 Write-Host "🎯 Next Steps:" -ForegroundColor Cyan
-Write-Host "1. Update appsettings.json with Azure AI Search and PostgreSQL connection details" -ForegroundColor White
-Write-Host "2. Run: dotnet ef database update --context ContosoRetailPostgresContext" -ForegroundColor White
-Write-Host "3. Run: .\migrate-data.ps1 to import data from SQL Server to PostgreSQL" -ForegroundColor White
-Write-Host "4. Deploy backend to Azure Container Apps" -ForegroundColor White
+Write-Host "1. Verify Container App is running: az containerapp show -n <app-name> -g $ResourceGroupName" -ForegroundColor White
+Write-Host "2. Test API endpoints at the Container App URL" -ForegroundColor White
+Write-Host "3. Run ETL to index data in Azure AI Search" -ForegroundColor White
+Write-Host "4. Deploy frontend to Azure Static Web Apps" -ForegroundColor White
 Write-Host ""
 
 $hasFailures = $deploymentResults.Values | Where-Object { $_ -like "❌*" }
