@@ -160,15 +160,85 @@ public class RagService : IRagService
                 {
                     PropertyNameCaseInsensitive = true
                 }) ?? new RagResponse { Answer = responseContent, Success = true };
+                
+                // Validate that chartData was parsed correctly
+                if (ragResponse.ChartData == null && cleanedResponse.Contains("\"chartData\""))
+                {
+                    _logger.LogWarning("ChartData is null despite being present in response. Attempting re-parse.");
+                    
+                    // The LLM might have nested the JSON - extract it
+                    if (ragResponse.Answer != null && ragResponse.Answer.TrimStart().StartsWith("{"))
+                    {
+                        try
+                        {
+                            var nestedResponse = JsonSerializer.Deserialize<RagResponse>(ragResponse.Answer, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                            
+                            if (nestedResponse != null && nestedResponse.ChartData != null)
+                            {
+                                ragResponse = nestedResponse;
+                                _logger.LogInformation("Successfully extracted nested JSON response");
+                            }
+                        }
+                        catch (Exception nestedEx)
+                        {
+                            _logger.LogWarning("Failed to parse nested JSON: {Error}", nestedEx.Message);
+                        }
+                    }
+                }
+                
+                _logger.LogInformation("Successfully parsed RAG response");
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
-                // Fallback: use raw response as answer
-                ragResponse = new RagResponse 
-                { 
-                    Answer = responseContent,
-                    Success = true
-                };
+                _logger.LogWarning("JSON parsing failed: {Error}. Attempting fallback parsing.", ex.Message);
+                
+                // Fallback: The LLM might have returned the JSON object as a string in the answer field
+                // Try to extract and parse it
+                try
+                {
+                    // Check if the response starts with { - it might be valid JSON without wrapper
+                    if (cleanedResponse.StartsWith("{"))
+                    {
+                        // Try parsing directly
+                        var directParse = JsonSerializer.Deserialize<RagResponse>(cleanedResponse, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+                        
+                        if (directParse != null)
+                        {
+                            ragResponse = directParse;
+                            _logger.LogInformation("Successfully parsed response on second attempt");
+                        }
+                        else
+                        {
+                            throw new JsonException("Direct parse returned null");
+                        }
+                    }
+                    else
+                    {
+                        // Use raw response as answer
+                        ragResponse = new RagResponse 
+                        { 
+                            Answer = responseContent,
+                            Success = true
+                        };
+                        _logger.LogWarning("Using raw response as fallback");
+                    }
+                }
+                catch
+                {
+                    // Final fallback: use raw response
+                    ragResponse = new RagResponse 
+                    { 
+                        Answer = responseContent,
+                        Success = true
+                    };
+                    _logger.LogWarning("All parsing attempts failed, using raw response");
+                }
             }
 
             ragResponse.Success = true;
