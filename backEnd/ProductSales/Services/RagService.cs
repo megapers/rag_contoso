@@ -167,14 +167,17 @@ public class RagService : IRagService
                 {
                     var trimmedAnswer = ragResponse.Answer.TrimStart();
                     
-                    // Check if answer looks like JSON (starts with { or contains {\n  \"answer\":)
-                    if (trimmedAnswer.StartsWith("{") || trimmedAnswer.StartsWith("{\\n"))
+                    // Check if answer looks like escaped JSON (starts with { and contains \n or \")
+                    if (trimmedAnswer.StartsWith("{") && (trimmedAnswer.Contains("\\n") || trimmedAnswer.Contains("\\\"")))
                     {
-                        _logger.LogWarning("ChartData is null but answer contains JSON structure. Attempting to parse nested JSON.");
+                        _logger.LogWarning("ChartData is null but answer contains escaped JSON. Attempting to unescape and parse.");
                         
                         try
                         {
-                            var nestedResponse = JsonSerializer.Deserialize<RagResponse>(ragResponse.Answer, new JsonSerializerOptions
+                            // Unescape the JSON string (convert \n to newlines, \" to quotes, etc.)
+                            var unescapedJson = System.Text.RegularExpressions.Regex.Unescape(ragResponse.Answer);
+                            
+                            var nestedResponse = JsonSerializer.Deserialize<RagResponse>(unescapedJson, new JsonSerializerOptions
                             {
                                 PropertyNameCaseInsensitive = true
                             });
@@ -182,12 +185,35 @@ public class RagService : IRagService
                             if (nestedResponse != null && nestedResponse.ChartData != null)
                             {
                                 ragResponse = nestedResponse;
-                                _logger.LogInformation("Successfully extracted nested JSON response");
+                                _logger.LogInformation("Successfully extracted and unescaped nested JSON response");
                             }
                         }
                         catch (Exception nestedEx)
                         {
-                            _logger.LogWarning("Failed to parse nested JSON: {Error}", nestedEx.Message);
+                            _logger.LogWarning("Failed to parse escaped JSON: {Error}", nestedEx.Message);
+                        }
+                    }
+                    // Also try direct parsing if it starts with { but no escaping detected
+                    else if (trimmedAnswer.StartsWith("{"))
+                    {
+                        _logger.LogWarning("ChartData is null but answer starts with {{. Attempting direct parse.");
+                        
+                        try
+                        {
+                            var nestedResponse = JsonSerializer.Deserialize<RagResponse>(trimmedAnswer, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                            
+                            if (nestedResponse != null && nestedResponse.ChartData != null)
+                            {
+                                ragResponse = nestedResponse;
+                                _logger.LogInformation("Successfully extracted nested JSON response via direct parse");
+                            }
+                        }
+                        catch (Exception directEx)
+                        {
+                            _logger.LogWarning("Direct parse failed: {Error}", directEx.Message);
                         }
                     }
                 }
