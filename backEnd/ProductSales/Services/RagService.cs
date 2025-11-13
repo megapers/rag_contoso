@@ -137,23 +137,26 @@ public class RagService : IRagService
                 // Clean the response (remove markdown code blocks if present)
                 var cleanedResponse = responseContent.Trim();
                 
-                // Remove opening markdown blocks
-                if (cleanedResponse.StartsWith("```json"))
-                {
-                    cleanedResponse = cleanedResponse.Substring(7).TrimStart();
-                }
-                else if (cleanedResponse.StartsWith("```"))
-                {
-                    cleanedResponse = cleanedResponse.Substring(3).TrimStart();
-                }
+                // Use regex to extract JSON between markdown code blocks
+                var jsonBlockPattern = @"```(?:json)?\s*\n?(.*?)\n?```";
+                var match = System.Text.RegularExpressions.Regex.Match(cleanedResponse, jsonBlockPattern, 
+                    System.Text.RegularExpressions.RegexOptions.Singleline);
                 
-                // Remove closing markdown block
-                if (cleanedResponse.EndsWith("```"))
+                if (match.Success)
                 {
-                    cleanedResponse = cleanedResponse.Substring(0, cleanedResponse.Length - 3).TrimEnd();
+                    // Extract the JSON content from within the code block
+                    cleanedResponse = match.Groups[1].Value.Trim();
                 }
-                
-                cleanedResponse = cleanedResponse.Trim();
+                else
+                {
+                    // Fallback: Try simple string replacement for edge cases
+                    cleanedResponse = cleanedResponse
+                        .Replace("```json\n", "")
+                        .Replace("```json", "")
+                        .Replace("```\n", "")
+                        .Replace("```", "")
+                        .Trim();
+                }
 
                 ragResponse = JsonSerializer.Deserialize<RagResponse>(cleanedResponse, new JsonSerializerOptions
                 {
