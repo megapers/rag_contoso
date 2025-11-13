@@ -68,3 +68,24 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View package: https://github.com/megapers/rag_contoso/pkgs/container/rag_contoso" >> $GITHUB_STEP_SUMMARY
+
+      - name: Log in to Azure
+        if: github.event_name != 'pull_request'
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update Azure Container App
+        if: github.event_name != 'pull_request'
+        run: |
+          az containerapp update \
+            --name $(az containerapp list --resource-group rg-productsales-demo --query "[0].name" -o tsv) \
+            --resource-group rg-productsales-demo \
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deployment summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "### Azure Container App Updated! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The container app has been updated with the latest image." >> $GITHUB_STEP_SUMMARY
