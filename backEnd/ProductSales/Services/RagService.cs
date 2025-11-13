@@ -136,18 +136,23 @@ public class RagService : IRagService
             {
                 // Clean the response (remove markdown code blocks if present)
                 var cleanedResponse = responseContent.Trim();
+                
+                // Remove opening markdown blocks
                 if (cleanedResponse.StartsWith("```json"))
                 {
-                    cleanedResponse = cleanedResponse.Substring(7);
+                    cleanedResponse = cleanedResponse.Substring(7).TrimStart();
                 }
-                if (cleanedResponse.StartsWith("```"))
+                else if (cleanedResponse.StartsWith("```"))
                 {
-                    cleanedResponse = cleanedResponse.Substring(3);
+                    cleanedResponse = cleanedResponse.Substring(3).TrimStart();
                 }
+                
+                // Remove closing markdown block
                 if (cleanedResponse.EndsWith("```"))
                 {
-                    cleanedResponse = cleanedResponse.Substring(0, cleanedResponse.Length - 3);
+                    cleanedResponse = cleanedResponse.Substring(0, cleanedResponse.Length - 3).TrimEnd();
                 }
+                
                 cleanedResponse = cleanedResponse.Trim();
 
                 ragResponse = JsonSerializer.Deserialize<RagResponse>(cleanedResponse, new JsonSerializerOptions
