@@ -17,7 +17,9 @@ function QueryInput({ onSubmit, loading }) {
     "Compare sales by manufacturer",
     "Show me products with the highest sales amounts",
     "What are the sales trends by month in 2009?",
-    "Which stores had the best performance?"
+    "Which stores had the best performance?",
+    "Predict sales for December 2009 based on historical trends",
+    "What would be the forecasted revenue for Q1 2010?"
   ];
 
   const handleSampleClick = (sample) => {
