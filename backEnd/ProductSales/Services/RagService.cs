@@ -130,6 +130,8 @@ public class RagService : IRagService
             // Step 5: Parse response
             var responseContent = llmResponse.Choices?.FirstOrDefault()?.Message?.Content ?? "";
             
+            _logger.LogDebug("Raw LLM response: {Response}", responseContent);
+            
             // Try to parse the JSON response
             RagResponse ragResponse;
             try
@@ -138,7 +140,7 @@ public class RagService : IRagService
                 var cleanedResponse = responseContent.Trim();
                 
                 // Use regex to extract JSON between markdown code blocks
-                var jsonBlockPattern = @"^```(?:json)?\s*\r?\n?(.*?)\r?\n?```\s*$";
+                var jsonBlockPattern = @"```(?:json)?[\s\r\n]*(.*?)[\s\r\n]*```";
                 var match = System.Text.RegularExpressions.Regex.Match(
                     cleanedResponse, 
                     jsonBlockPattern, 
@@ -149,7 +151,10 @@ public class RagService : IRagService
                 {
                     // Extract the JSON content from within the code block
                     cleanedResponse = match.Groups[1].Value.Trim();
+                    _logger.LogDebug("Extracted JSON from markdown block");
                 }
+                
+                _logger.LogDebug("Cleaned response: {Response}", cleanedResponse);
 
                 ragResponse = JsonSerializer.Deserialize<RagResponse>(cleanedResponse, new JsonSerializerOptions
                 {
@@ -224,6 +229,8 @@ Your response MUST be a valid JSON object with this exact structure:
   }
 }
 
+CRITICAL: Return ONLY the raw JSON object. DO NOT wrap in markdown code blocks (```json or ```)
+
 Chart Type Guidelines:
 - Use 'bar' for comparisons (products, categories, manufacturers)
 - Use 'line' for time series or trends
@@ -255,7 +262,9 @@ Your response MUST be a valid JSON object with this exact structure:
   }
 }
 
-CRITICAL: 
+CRITICAL:
+- Return ONLY the raw JSON object, NO markdown code blocks or formatting
+- DO NOT wrap the response in ```json or ``` markers 
 - Show historical data AND predictions in the chart
 - Clearly label which data points are historical vs predicted
 - Explain your forecasting methodology in the answer
