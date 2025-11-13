@@ -138,24 +138,17 @@ public class RagService : IRagService
                 var cleanedResponse = responseContent.Trim();
                 
                 // Use regex to extract JSON between markdown code blocks
-                var jsonBlockPattern = @"```(?:json)?\s*\n?(.*?)\n?```";
-                var match = System.Text.RegularExpressions.Regex.Match(cleanedResponse, jsonBlockPattern, 
-                    System.Text.RegularExpressions.RegexOptions.Singleline);
+                var jsonBlockPattern = @"^```(?:json)?\s*\r?\n?(.*?)\r?\n?```\s*$";
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    cleanedResponse, 
+                    jsonBlockPattern, 
+                    System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                );
                 
                 if (match.Success)
                 {
                     // Extract the JSON content from within the code block
                     cleanedResponse = match.Groups[1].Value.Trim();
-                }
-                else
-                {
-                    // Fallback: Try simple string replacement for edge cases
-                    cleanedResponse = cleanedResponse
-                        .Replace("```json\n", "")
-                        .Replace("```json", "")
-                        .Replace("```\n", "")
-                        .Replace("```", "")
-                        .Trim();
                 }
 
                 ragResponse = JsonSerializer.Deserialize<RagResponse>(cleanedResponse, new JsonSerializerOptions
