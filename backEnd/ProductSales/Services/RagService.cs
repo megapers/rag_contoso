@@ -648,5 +648,5 @@ public class ChartData
     public string ChartType { get; set; } = "bar";
     public string Title { get; set; } = string.Empty;
     public List<string> Labels { get; set; } = new();
-    public List<decimal> Values { get; set; } = new();
+    public List<decimal?> Values { get; set; } = new();
 }
