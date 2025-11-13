@@ -41,3 +41,4 @@ Dockerfile*
 *.nupkg
 packages/
 # Trigger build - 11/11/2025 19:05:05
+# Trigger rebuild
