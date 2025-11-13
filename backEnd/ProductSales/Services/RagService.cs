@@ -134,10 +134,10 @@ public class RagService : IRagService
             
             // Try to parse the JSON response
             RagResponse ragResponse;
+            string cleanedResponse = responseContent.Trim(); // Declare outside try block
             try
             {
                 // Clean the response (remove markdown code blocks if present)
-                var cleanedResponse = responseContent.Trim();
                 
                 // Use regex to extract JSON between markdown code blocks
                 var jsonBlockPattern = @"```(?:json)?[\s\r\n]*(.*?)[\s\r\n]*```";
