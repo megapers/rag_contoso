@@ -64,8 +64,7 @@ builder.Services.AddCors(options =>
                            uri.Host.EndsWith("azurecontainerapps.io");
                 })
                 .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
+                .AllowAnyMethod();
         });
 });
 
