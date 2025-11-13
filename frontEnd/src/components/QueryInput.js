@@ -13,11 +13,11 @@ function QueryInput({ onSubmit, loading }) {
 
   const sampleQuestions = [
     "What were the total sales in November 2007?",
-    "Show me the top 5 products by profit margin",
+    "Which sales channels generated the most revenue?",
     "Compare sales by manufacturer",
-    "Based on historical trends, what are predicted sales for 2010?",
-    "What is the sales forecast for next year?",
-    "Predict future sales based on the past 3 years"
+    "Show me products with the highest sales amounts",
+    "What are the sales trends by month in 2009?",
+    "Which stores had the best performance?"
   ];
 
   const handleSampleClick = (sample) => {
