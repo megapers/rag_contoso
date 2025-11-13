@@ -162,13 +162,16 @@ public class RagService : IRagService
                 }) ?? new RagResponse { Answer = responseContent, Success = true };
                 
                 // Validate that chartData was parsed correctly
-                if (ragResponse.ChartData == null && cleanedResponse.Contains("\"chartData\""))
+                // Check if LLM returned nested JSON (entire JSON object as string in answer field)
+                if (ragResponse.ChartData == null && ragResponse.Answer != null)
                 {
-                    _logger.LogWarning("ChartData is null despite being present in response. Attempting re-parse.");
+                    var trimmedAnswer = ragResponse.Answer.TrimStart();
                     
-                    // The LLM might have nested the JSON - extract it
-                    if (ragResponse.Answer != null && ragResponse.Answer.TrimStart().StartsWith("{"))
+                    // Check if answer looks like JSON (starts with { or contains {\n  \"answer\":)
+                    if (trimmedAnswer.StartsWith("{") || trimmedAnswer.StartsWith("{\\n"))
                     {
+                        _logger.LogWarning("ChartData is null but answer contains JSON structure. Attempting to parse nested JSON.");
+                        
                         try
                         {
                             var nestedResponse = JsonSerializer.Deserialize<RagResponse>(ragResponse.Answer, new JsonSerializerOptions
