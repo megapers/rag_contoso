@@ -167,15 +167,45 @@ public class RagService : IRagService
                 {
                     var trimmedAnswer = ragResponse.Answer.TrimStart();
                     
-                    // Check if answer looks like escaped JSON (starts with { and contains \n or \")
-                    if (trimmedAnswer.StartsWith("{") && (trimmedAnswer.Contains("\\n") || trimmedAnswer.Contains("\\\"")))
+                    // CRITICAL FIX: When LLM returns: {"answer": "{\n  \"answer\":...", "chartData": null}
+                    // The answer field contains a JSON-encoded string with literal \n and \" 
+                    // We need to treat it as a JSON string literal and parse it
+                    if (trimmedAnswer.StartsWith("{"))
                     {
-                        _logger.LogWarning("ChartData is null but answer contains escaped JSON. Attempting to unescape and parse.");
+                        _logger.LogWarning("ChartData is null but answer starts with {{. Attempting to parse nested JSON.");
                         
+                        // Method 1: Use JsonSerializer to decode the JSON string value
                         try
                         {
-                            // Unescape the JSON string (convert \n to newlines, \" to quotes, etc.)
-                            var unescapedJson = System.Text.RegularExpressions.Regex.Unescape(ragResponse.Answer);
+                            // Wrap the answer in quotes to make it a JSON string, then deserialize it
+                            // This handles the JSON escape sequences like \n and \"
+                            var jsonString = JsonSerializer.Serialize(ragResponse.Answer); // This properly escapes it
+                            var unescapedJson = JsonSerializer.Deserialize<string>(jsonString); // This unescapes it
+                            
+                            if (!string.IsNullOrEmpty(unescapedJson) && unescapedJson.StartsWith("{"))
+                            {
+                                var nestedResponse = JsonSerializer.Deserialize<RagResponse>(unescapedJson, new JsonSerializerOptions
+                                {
+                                    PropertyNameCaseInsensitive = true
+                                });
+                                
+                                if (nestedResponse != null && nestedResponse.ChartData != null)
+                                {
+                                    ragResponse = nestedResponse;
+                                    _logger.LogInformation("Successfully extracted nested JSON via serialize-deserialize method");
+                                    return ragResponse;
+                                }
+                            }
+                        }
+                        catch (Exception serializeEx)
+                        {
+                            _logger.LogWarning("Serialize-deserialize method failed: {Error}. Trying Regex.Unescape.", serializeEx.Message);
+                        }
+                        
+                        // Method 2: Use Regex.Unescape (handles \n, \", etc.)
+                        try
+                        {
+                            var unescapedJson = System.Text.RegularExpressions.Regex.Unescape(trimmedAnswer);
                             
                             var nestedResponse = JsonSerializer.Deserialize<RagResponse>(unescapedJson, new JsonSerializerOptions
                             {
@@ -185,19 +215,16 @@ public class RagService : IRagService
                             if (nestedResponse != null && nestedResponse.ChartData != null)
                             {
                                 ragResponse = nestedResponse;
-                                _logger.LogInformation("Successfully extracted and unescaped nested JSON response");
+                                _logger.LogInformation("Successfully extracted nested JSON via Regex.Unescape");
+                                return ragResponse;
                             }
                         }
-                        catch (Exception nestedEx)
+                        catch (Exception unescapeEx)
                         {
-                            _logger.LogWarning("Failed to parse escaped JSON: {Error}", nestedEx.Message);
+                            _logger.LogWarning("Regex.Unescape failed: {Error}. Trying direct parse.", unescapeEx.Message);
                         }
-                    }
-                    // Also try direct parsing if it starts with { but no escaping detected
-                    else if (trimmedAnswer.StartsWith("{"))
-                    {
-                        _logger.LogWarning("ChartData is null but answer starts with {{. Attempting direct parse.");
                         
+                        // Method 3: Direct parsing (in case it's already clean JSON)
                         try
                         {
                             var nestedResponse = JsonSerializer.Deserialize<RagResponse>(trimmedAnswer, new JsonSerializerOptions
@@ -208,12 +235,12 @@ public class RagService : IRagService
                             if (nestedResponse != null && nestedResponse.ChartData != null)
                             {
                                 ragResponse = nestedResponse;
-                                _logger.LogInformation("Successfully extracted nested JSON response via direct parse");
+                                _logger.LogInformation("Successfully extracted nested JSON via direct parse");
                             }
                         }
                         catch (Exception directEx)
                         {
-                            _logger.LogWarning("Direct parse failed: {Error}", directEx.Message);
+                            _logger.LogWarning("All nested JSON parsing methods failed. Last error: {Error}", directEx.Message);
                         }
                     }
                 }
