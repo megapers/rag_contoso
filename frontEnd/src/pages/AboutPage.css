@@ -150,6 +150,63 @@
   color: #1f2937;
 }
 
+.dataflow-step {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.75rem;
+  background: #ffffff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.05);
+  margin-bottom: 1.5rem;
+}
+
+.dataflow-step h3 {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+  color: #4f46e5;
+  font-size: 1.15rem;
+}
+
+.dataflow-step p {
+  margin: 0 0 1rem 0;
+  color: #374151;
+  line-height: 1.7;
+}
+
+.dataflow-step p:last-child {
+  margin-bottom: 0;
+}
+
+.dataflow-step ul {
+  margin: 0.5rem 0 1rem 0;
+  padding-left: 1.5rem;
+  color: #4b5563;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dataflow-step code {
+  background: #f1f5f9;
+  color: #6366f1;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Source Code Pro', monospace;
+  font-size: 0.9em;
+}
+
+.technical-note {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(129, 140, 248, 0.03));
+  border-left: 3px solid #6366f1;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #475569;
+  margin-top: 1rem;
+}
+
+.technical-note strong {
+  color: #4f46e5;
+}
+
 .tech-grid {
   display: grid;
   gap: 1.5rem;

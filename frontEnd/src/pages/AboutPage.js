@@ -82,14 +82,71 @@ function AboutPage() {
       </section>
 
       <section className="about-dataflow" aria-labelledby="dataflow-heading">
-        <h2 id="dataflow-heading">RAG Dataflow</h2>
-        <ol>
-          <li><strong>Ask:</strong> User submits a sales or forecasting question from the React UI.</li>
-          <li><strong>Retrieve:</strong> Azure AI Search returns enriched Contoso records ranked by semantic + keyword relevance.</li>
-          <li><strong>Augment:</strong> .NET RAG service stitches context (prompt + records + structured instructions).</li>
-          <li><strong>Generate:</strong> DeepSeek produces a strict JSON payload with narrative, chart metadata, and confidence.</li>
-          <li><strong>Render:</strong> Response parser sanitises the JSON, validates chart values, and feeds Chart.js for visual insight.</li>
-        </ol>
+        <h2 id="dataflow-heading">RAG Pipeline Explained</h2>
+        
+        <div className="dataflow-step">
+          <h3>1. Retrieval: Azure AI Search with BM25</h3>
+          <p>
+            When you ask a question, the system first retrieves the most relevant sales records using <strong>Azure AI Search</strong>.
+            The search service uses <strong>BM25 (Best Match 25)</strong>, a probabilistic ranking algorithm that scores documents
+            based on term frequency and inverse document frequency. This ensures that records matching your keywords—whether product names,
+            dates, or categories—are surfaced with precision.
+          </p>
+          <p>
+            The search index is built from <strong>enriched sales documents</strong> that combine transactional data (sales amount, quantity, date)
+            with product metadata (manufacturer, brand, color, class). Azure AI Search supports hybrid queries combining full-text and filtered searches,
+            allowing the pipeline to narrow results by date ranges or other dimensions before passing them to the LLM.
+          </p>
+          <p className="technical-note">
+            <strong>Technical detail:</strong> The index schema is defined dynamically using the <code>FieldBuilder</code> in the .NET SDK,
+            and documents are indexed in batches of 1,000 to respect Azure's throttling limits. The free tier supports full-text BM25 search
+            without requiring vector embeddings.
+          </p>
+        </div>
+
+        <div className="dataflow-step">
+          <h3>2. Augmentation: Context Building</h3>
+          <p>
+            Retrieved documents are ranked by relevance score, deduplicated, and aggregated into structured context. For standard queries,
+            the RAG service groups sales by product and computes totals, averages, and transaction counts. For predictive queries (e.g., forecasts),
+            it builds time-series aggregations with year-over-year growth rates.
+          </p>
+          <p>
+            This context—formatted as plain text with clear headings—is inserted into the LLM prompt alongside your original question and
+            strict JSON formatting instructions. The prompt engineering ensures the LLM responds with both a natural language answer and
+            structured chart data (labels, values, chart type).
+          </p>
+        </div>
+
+        <div className="dataflow-step">
+          <h3>3. Generation: DeepSeek LLM</h3>
+          <p>
+            The augmented prompt is sent to <strong>DeepSeek</strong> via its chat completions API. The LLM analyzes the context,
+            interprets your question, and produces a JSON response containing:
+          </p>
+          <ul>
+            <li><strong>Answer:</strong> A detailed narrative explanation with specific numbers and insights</li>
+            <li><strong>ChartData:</strong> Structured visualization metadata (chart type, title, labels array, values array)</li>
+          </ul>
+          <p>
+            The system prompt enforces consistency—instructing the model to always sort data the same way, round to two decimals, and return
+            raw JSON without markdown wrappers. For forecasting queries, it explicitly asks for trend analysis, growth rate calculations,
+            and confidence ranges.
+          </p>
+        </div>
+
+        <div className="dataflow-step">
+          <h3>4. Parsing & Rendering</h3>
+          <p>
+            The .NET RAG service parses the LLM's JSON response, handling edge cases like markdown code blocks or escaped strings (using
+            <code>Regex.Unescape</code> for nested JSON). It validates the chart data structure, ensuring labels and values align, and
+            makes chart fields nullable to gracefully handle text-only responses.
+          </p>
+          <p>
+            Finally, the React frontend receives the validated response and renders the answer text alongside a Chart.js visualization
+            (bar, line, or pie chart). If no chart data is available, it displays a friendly message instead of breaking the UI.
+          </p>
+        </div>
       </section>
 
       <section className="about-tech" aria-labelledby="tech-heading">
