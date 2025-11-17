@@ -83,6 +83,10 @@ public class ProductSalesEnriched
     [SimpleField(IsFilterable = true)]
     public int CurrencyKey { get; set; }
 
+    // Vector Search Field for semantic similarity
+    [VectorSearchField(VectorSearchDimensions = 384, VectorSearchProfileName = "vector-profile")]
+    public IReadOnlyList<float>? Embedding { get; set; }
+
     // Calculated Fields (not indexed)
     public double ProfitMargin => UnitPrice > 0 ? ((UnitPrice - UnitCost) / UnitPrice) * 100 : 0;
     public double NetSalesAmount => SalesAmount - (ReturnAmount ?? 0) - (DiscountAmount ?? 0);

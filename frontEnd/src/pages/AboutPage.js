@@ -85,22 +85,56 @@ function AboutPage() {
         <h2 id="dataflow-heading">RAG Pipeline Explained</h2>
         
         <div className="dataflow-step">
-          <h3>1. Retrieval: Azure AI Search with BM25</h3>
+          <h3>1. Retrieval: Hybrid Search with BM25 + Vector Similarity</h3>
           <p>
-            When you ask a question, the system first retrieves the most relevant sales records using <strong>Azure AI Search</strong>.
-            The search service uses <strong>BM25 (Best Match 25)</strong>, a probabilistic ranking algorithm that scores documents
-            based on term frequency and inverse document frequency. This ensures that records matching your keywords—whether product names,
-            dates, or categories—are surfaced with precision.
+            When you ask a question, the system employs <strong>hybrid search</strong>—combining traditional keyword matching with semantic vector similarity—to retrieve the most relevant sales records from <strong>Azure AI Search</strong>.
           </p>
+          
+          <h4>BM25 Keyword Search</h4>
+          <p>
+            The first component is <strong>BM25 (Best Match 25)</strong>, a probabilistic ranking algorithm that scores documents
+            based on term frequency (TF) and inverse document frequency (IDF). This ensures that records matching your exact keywords—whether product names,
+            dates, categories, or manufacturers—are surfaced with precision. BM25 excels at finding documents with explicit word matches.
+          </p>
+          
+          <h4>Vector Semantic Search</h4>
+          <p>
+            The second component uses <strong>dense vector embeddings</strong> to capture semantic meaning. Every sales document is transformed into
+            a 384-dimensional vector using the <strong>all-MiniLM-L6-v2</strong> sentence transformer model—a compact BERT-based encoder optimized
+            for semantic similarity tasks. This ONNX model runs locally in the .NET backend using <code>Microsoft.ML.OnnxRuntime</code>, generating
+            embeddings with sub-second latency.
+          </p>
+          <p>
+            When you submit a query, the system generates an embedding for your question using the same model, then performs a vector similarity search
+            using <strong>cosine distance</strong> in Azure AI Search. This retrieves documents that are semantically related to your question—even if
+            they don't share exact keywords. For example, asking "best performing products" will match documents about "top-selling items" or "highest revenue".
+          </p>
+          
+          <h4>HNSW Vector Index</h4>
+          <p>
+            The vector search is powered by <strong>HNSW (Hierarchical Navigable Small World)</strong>, a graph-based algorithm that enables fast
+            approximate nearest neighbor search. Configured with <code>M=4</code> (graph connections per node), <code>efConstruction=400</code> (build-time quality),
+            and <code>efSearch=500</code> (query-time recall), the index delivers sub-millisecond vector lookups even as the corpus scales.
+          </p>
+          
+          <h4>Hybrid Fusion</h4>
+          <p>
+            Azure AI Search automatically combines BM25 scores and vector similarity scores using <strong>Reciprocal Rank Fusion (RRF)</strong>.
+            This technique merges the two result sets by ranking position rather than raw scores, ensuring balanced contributions from both keyword
+            and semantic signals. The result is a unified ranked list where both exact matches and conceptually similar documents appear at the top.
+          </p>
+          
           <p>
             The search index is built from <strong>enriched sales documents</strong> that combine transactional data (sales amount, quantity, date)
-            with product metadata (manufacturer, brand, color, class). Azure AI Search supports hybrid queries combining full-text and filtered searches,
-            allowing the pipeline to narrow results by date ranges or other dimensions before passing them to the LLM.
+            with product metadata (manufacturer, brand, color, class). Each document includes both searchable text fields for BM25 and a 384-dimensional
+            embedding vector for semantic search.
           </p>
+          
           <p className="technical-note">
-            <strong>Technical detail:</strong> The index schema is defined dynamically using the <code>FieldBuilder</code> in the .NET SDK,
-            and documents are indexed in batches of 1,000 to respect Azure's throttling limits. The free tier supports full-text BM25 search
-            without requiring vector embeddings.
+            <strong>Technical details:</strong> The index schema is defined dynamically using the <code>FieldBuilder</code> in the .NET SDK.
+            Documents are indexed in batches of 1,000 to respect Azure's throttling limits. The ONNX embedding model (86MB) is copied to the build
+            output directory and loaded once at startup. Tokenization uses BERT's WordPiece algorithm with a 30,522-token vocabulary, generating
+            input_ids, attention_mask, and token_type_ids tensors for the ONNX inference session.
           </p>
         </div>
 

@@ -30,6 +30,7 @@ builder.Services.AddSingleton<IDimProductRepository, DimProductRepository>();
 // Add services
 builder.Services.AddScoped<IEtlService, EtlService>();
 builder.Services.AddScoped<IAzureSearchService, AzureSearchService>();
+builder.Services.AddSingleton<IEmbeddingService, EmbeddingService>();
 builder.Services.AddHttpClient<ILlmApiClient, LlmApiClient>();
 builder.Services.AddScoped<IRagService, RagService>();
 builder.Services.AddScoped<IDataMigrationService, DataMigrationService>();
@@ -76,13 +77,10 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-// Enable Swagger in all environments for demo purposes
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
-
-// Enable CORS - use Vercel policy to allow Vercel deployments
+// Enable CORS
 app.UseCors("AllowVercel");
 
 // Map API Endpoints

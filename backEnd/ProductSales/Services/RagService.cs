@@ -6,7 +6,7 @@ namespace ProductSales.Services;
 public interface IRagService
 {
     Task<RagResponse> QueryAsync(string question);
-    Task<bool> IndexDataAsync();
+    Task<bool> IndexDataAsync(int? limit = null);
 }
 
 public class RagService : IRagService
@@ -14,25 +14,28 @@ public class RagService : IRagService
     private readonly IAzureSearchService _searchService;
     private readonly ILlmApiClient _llmClient;
     private readonly IEtlService _etlService;
+    private readonly IEmbeddingService _embeddingService;
     private readonly ILogger<RagService> _logger;
 
     public RagService(
         IAzureSearchService searchService,
         ILlmApiClient llmClient,
         IEtlService etlService,
+        IEmbeddingService embeddingService,
         ILogger<RagService> logger)
     {
         _searchService = searchService;
         _llmClient = llmClient;
         _etlService = etlService;
+        _embeddingService = embeddingService;
         _logger = logger;
     }
 
-    public async Task<bool> IndexDataAsync()
+    public async Task<bool> IndexDataAsync(int? limit = null)
     {
         try
         {
-            _logger.LogInformation("Starting RAG data indexing...");
+            _logger.LogInformation("Starting RAG data indexing{Limit}...", limit.HasValue ? $" (limit: {limit})" : "");
 
             // Create or update index
             var indexCreated = await _searchService.CreateOrUpdateIndexAsync();
@@ -41,8 +44,8 @@ public class RagService : IRagService
                 return false;
             }
 
-            // Get enriched data
-            var enrichedData = await _etlService.GetEnrichedDataAsync();
+            // Get enriched data with limit
+            var enrichedData = await _etlService.GetEnrichedDataAsync(limit);
 
             // Index documents
             var indexed = await _searchService.IndexDocumentsAsync(enrichedData);
@@ -82,7 +85,25 @@ public class RagService : IRagService
             // Step 2: Retrieve relevant documents from Azure AI Search with increased results
             // For predictive queries, we need more historical data
             var topResults = isPredictiveQuery ? 50 : 10;
-            var searchResults = await _searchService.SearchAsync(question, top: topResults, dateFilter);
+            
+            // Generate query embedding for hybrid search
+            ReadOnlyMemory<float>? queryEmbedding = null;
+            try
+            {
+                queryEmbedding = _embeddingService.GetEmbeddingMemory(question);
+                _logger.LogInformation("Generated query embedding for hybrid search");
+            }
+            catch (Exception embEx)
+            {
+                _logger.LogWarning(embEx, "Failed to generate query embedding, falling back to BM25 only");
+            }
+            
+            var searchResults = await _searchService.HybridSearchAsync(
+                query: question, 
+                queryVector: queryEmbedding,
+                top: topResults, 
+                filter: dateFilter
+            );
 
             var relevantDocs = new List<ProductSalesEnriched>();
             await foreach (var result in searchResults.GetResultsAsync())

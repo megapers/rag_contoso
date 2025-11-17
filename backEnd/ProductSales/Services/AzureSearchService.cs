@@ -12,6 +12,7 @@ public interface IAzureSearchService
     Task<bool> CreateOrUpdateIndexAsync();
     Task<bool> IndexDocumentsAsync(IEnumerable<ProductSalesEnriched> documents);
     Task<SearchResults<ProductSalesEnriched>> SearchAsync(string query, int top = 5, string? filter = null);
+    Task<SearchResults<ProductSalesEnriched>> HybridSearchAsync(string query, ReadOnlyMemory<float>? queryVector = null, int top = 5, string? filter = null);
     Task<bool> DeleteIndexAsync();
 }
 
@@ -46,10 +47,27 @@ public class AzureSearchService : IAzureSearchService
             var fieldBuilder = new FieldBuilder();
             var searchFields = fieldBuilder.Build(typeof(ProductSalesEnriched));
 
-            var definition = new SearchIndex(_indexName, searchFields);
+            // Configure vector search with HNSW algorithm
+            var vectorSearch = new VectorSearch();
+            vectorSearch.Profiles.Add(new VectorSearchProfile("vector-profile", "hnsw-config"));
+            vectorSearch.Algorithms.Add(new HnswAlgorithmConfiguration("hnsw-config")
+            {
+                Parameters = new HnswParameters
+                {
+                    Metric = VectorSearchAlgorithmMetric.Cosine,
+                    M = 4,
+                    EfConstruction = 400,
+                    EfSearch = 500
+                }
+            });
+
+            var definition = new SearchIndex(_indexName, searchFields)
+            {
+                VectorSearch = vectorSearch
+            };
 
             await _indexClient.CreateOrUpdateIndexAsync(definition);
-            _logger.LogInformation("Search index created/updated successfully");
+            _logger.LogInformation("Search index created/updated successfully with vector search support");
             
             return true;
         }
@@ -147,6 +165,59 @@ public class AzureSearchService : IAzureSearchService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Search failed for query: {Query}", query);
+            throw;
+        }
+    }
+
+    public async Task<SearchResults<ProductSalesEnriched>> HybridSearchAsync(
+        string query, 
+        ReadOnlyMemory<float>? queryVector = null, 
+        int top = 5, 
+        string? filter = null)
+    {
+        try
+        {
+            _logger.LogInformation("Hybrid search for: {Query} (vector: {HasVector})", query, queryVector.HasValue);
+
+            var options = new SearchOptions
+            {
+                Size = top,
+                Select = { "*" },
+                QueryType = SearchQueryType.Full
+            };
+
+            if (!string.IsNullOrEmpty(filter))
+            {
+                options.Filter = filter;
+            }
+
+            // Add vector search if embedding is provided
+            if (queryVector.HasValue && queryVector.Value.Length > 0)
+            {
+                var vectorQuery = new VectorizedQuery(queryVector.Value)
+                {
+                    KNearestNeighborsCount = top,
+                    Fields = { "Embedding" }
+                };
+                options.VectorSearch = new VectorSearchOptions
+                {
+                    Queries = { vectorQuery }
+                };
+
+                _logger.LogInformation("Using hybrid search (BM25 + vector similarity)");
+            }
+            else
+            {
+                _logger.LogInformation("Vector not provided, falling back to BM25 only");
+            }
+
+            var results = await _searchClient.SearchAsync<ProductSalesEnriched>(query, options);
+            
+            return results.Value;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Hybrid search failed for query: {Query}", query);
             throw;
         }
     }

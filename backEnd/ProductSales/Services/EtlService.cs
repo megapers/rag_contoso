@@ -9,17 +9,20 @@ public class EtlService : IEtlService
 {
     private readonly IFactSalesRepository _salesRepository;
     private readonly IDimProductRepository _productRepository;
+    private readonly IEmbeddingService _embeddingService;
     private readonly ILogger<EtlService> _logger;
     private readonly IWebHostEnvironment _environment;
 
     public EtlService(
         IFactSalesRepository salesRepository,
         IDimProductRepository productRepository,
+        IEmbeddingService embeddingService,
         ILogger<EtlService> logger,
         IWebHostEnvironment environment)
     {
         _salesRepository = salesRepository;
         _productRepository = productRepository;
+        _embeddingService = embeddingService;
         _logger = logger;
         _environment = environment;
     }
@@ -171,6 +174,37 @@ public class EtlService : IEtlService
             query = query.Take(limit.Value);
         }
 
-        return query.ToList();
+        var enrichedList = query.ToList();
+
+        // Generate embeddings for all documents
+        _logger.LogInformation("Generating embeddings for {Count} documents...", enrichedList.Count);
+        
+        for (int i = 0; i < enrichedList.Count; i++)
+        {
+            if (i % 10 == 0 && i > 0)
+            {
+                _logger.LogInformation("Embedding progress: {Current}/{Total}", i, enrichedList.Count);
+            }
+            
+            try
+            {
+                var embeddingMemory = _embeddingService.GetEmbeddingMemory(enrichedList[i].SearchableText);
+                // Convert ReadOnlyMemory<float> to IReadOnlyList<float> for Azure Search compatibility
+                enrichedList[i].Embedding = embeddingMemory.ToArray();
+                _logger.LogDebug("Generated embedding for document {Index}, dimensions: {Dims}", 
+                    i, enrichedList[i].Embedding?.Count ?? 0);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate embedding for document {Index}: {Text}", 
+                    i, enrichedList[i].SearchableText?.Substring(0, Math.Min(50, enrichedList[i].SearchableText?.Length ?? 0)));
+                // Continue with null embedding for this document
+            }
+        }
+        
+        _logger.LogInformation("Embeddings generated successfully. Documents with embeddings: {Count}", 
+            enrichedList.Count(d => d.Embedding != null));
+
+        return enrichedList;
     }
 }
