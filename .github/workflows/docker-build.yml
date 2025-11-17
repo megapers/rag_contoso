@@ -78,10 +78,11 @@ jobs:
       - name: Update Azure Container App
         if: github.event_name != 'pull_request'
         run: |
+          IMAGE_TAG="${{ github.sha }}"
           az containerapp update \
             --name $(az containerapp list --resource-group rg-productsales-demo --query "[0].name" -o tsv) \
             --resource-group rg-productsales-demo \
-            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main-${IMAGE_TAG:0:7}
 
       - name: Deployment summary
         if: github.event_name != 'pull_request'
